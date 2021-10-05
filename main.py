@@ -1,14 +1,20 @@
-import os
 import numpy as np
 import pandas as pd
 import pypyodbc
 
 if __name__ == "__main__":
-    cwd = os.getcwd()
-    df = pd.read_csv("Data/indexData.csv", delimiter=',')
+#SET GLOBAL VARIABLES
+    f = open("Info.txt", "r")
+    FILENAME, SERVER_NAME, DATABASE_NAME = f.read().split('\n')
+    FILENAME = FILENAME.split('=')[1]
+    SERVER_NAME = SERVER_NAME.split('=')[1]
+    DATABASE_NAME = DATABASE_NAME.split('=')[1]
+
+#READ FILE AND INSERT INTO DATAFRAME
+    df = pd.read_csv("Data/"+FILENAME, delimiter=',')
 
 #CLEAN FILENAME SO NO ERRORS OCCUR WHEN IMPORTING INTO DATABASE
-    file = "Data/indexData"
+    file = FILENAME.split('.')[0]
     clean_table_name = file.lower().replace(' ','_').replace('?','').replace('$','').replace('-','').replace('@','') \
         .replace('\\','').replace('(','').replace('/','').replace('%','').replace(')','').replace('+','') \
         .replace('=','')
@@ -33,29 +39,29 @@ if __name__ == "__main__":
     col_str = ", ".join("\"{}\" {}".format(n, d) for (n, d) in zip(df.columns, df.dtypes.replace(replacements)))
 
 #OPEN DATABASE CONNECTION
-    SERVER_NAME = "DESKTOP-MARTIJN"
-    DATABASE_NAME = "StockData"
-    TABLE_NAME = file.split('/')[1]
     conn = pypyodbc.connect("""
                 Driver={{ODBC Driver 17 for SQL Server}};
                 Server={0};
-                Trusted_Connection=yes;""".format(SERVER_NAME)
+                Trusted_Connection=yes;""".format(SERVER_NAME), autocommit=False
                             )
     cursor = conn.cursor()
 
 #CREATES DATABASE IF NOT EXISTS AND CONNECTS TO IT
-    cursor.execute("""
-                IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = '{0}') 
+    query = """
+                IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = ?) 
                 BEGIN
-                CREATE DATABASE [{0}]
+                CREATE DATABASE ?
                 END  
-            """.format(DATABASE_NAME))
+            """
+    params = (DATABASE_NAME, DATABASE_NAME)
+    cursor.execute(query, params)
+    conn.commit()
 
     conn = pypyodbc.connect("""
                 Driver={{ODBC Driver 17 for SQL Server}};
                 Server={0};
                 Database={1};
-                Trusted_Connection=yes;""".format(SERVER_NAME, DATABASE_NAME)
+                Trusted_Connection=yes;""".format(SERVER_NAME, DATABASE_NAME), autocommit=False
                             )
     cursor = conn.cursor()
 
@@ -63,12 +69,12 @@ if __name__ == "__main__":
     cursor.execute("""
             IF OBJECT_ID(N'dbo.[{0}]', N'U') IS NOT NULL  
             DROP TABLE [dbo].[{0}];  
-        """.format(TABLE_NAME))
+        """.format(file))
 
 #CREATE TABLE
     cursor.execute("""
             CREATE TABLE {0} ({1})
-        """.format(TABLE_NAME, col_str))
+        """.format(file, col_str))
 
 #SAVE DF TO CSV (df.to_csv('indexData.csv', header=df.columns, index=False, encoding=utf-8')
 
