@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     col_str = ", ".join("\"{}\" {}".format(n, d) for (n, d) in zip(df.columns, df.dtypes.replace(replacements)))
 
-#OPEN DATABASE CONNECTION
+#OPEN SERVER CONNECTION
     conn = pypyodbc.connect("""
                 Driver={{ODBC Driver 17 for SQL Server}};
                 Server={0};
